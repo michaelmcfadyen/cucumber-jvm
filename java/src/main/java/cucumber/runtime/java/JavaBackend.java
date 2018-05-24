@@ -51,6 +51,7 @@ public class JavaBackend implements Backend, LambdaGlueRegistry {
     private final ClassFinder classFinder;
 
     private final MethodScanner methodScanner;
+    private final FilterProcessor filterProcessor;
     private Glue glue;
     private List<Class<? extends GlueBase>> glueBaseClasses = new ArrayList<Class<? extends GlueBase>>();
 
@@ -73,13 +74,18 @@ public class JavaBackend implements Backend, LambdaGlueRegistry {
         this.methodScanner = new MethodScanner(classFinder);
         this.snippetGenerator = new SnippetGenerator(createSnippet(), typeRegistry.parameterTypeRegistry());
         this.typeRegistry = typeRegistry;
+        this.filterProcessor = new FilterProcessor();
     }
 
     @Override
     public void loadGlue(Glue glue, List<String> gluePaths) {
         this.glue = glue;
         // Scan for Java7 style glue (annotated methods)
-        methodScanner.scan(this, gluePaths);
+        List<Class<?>> glueCodeClasses = methodScanner.discoverGlueCodeClasses(gluePaths);
+
+        glueCodeClasses = filterProcessor.filter(glueCodeClasses);
+
+        methodScanner.scan(this, glueCodeClasses);
 
         // Scan for Java8 style glue (lambdas)
         for (final String gluePath : gluePaths) {

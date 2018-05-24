@@ -10,6 +10,7 @@ import cucumber.runtime.Utils;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 
 import static cucumber.runtime.io.MultiLoader.packageName;
@@ -22,25 +23,33 @@ class MethodScanner {
         this.classFinder = classFinder;
     }
 
+
+    public List<Class<?>> discoverGlueCodeClasses(List<String> gluePaths) {
+        List<Class<?>> glueCodeClasses = new ArrayList<Class<?>>();
+        for (String gluePath : gluePaths) {
+            glueCodeClasses.addAll(classFinder.getDescendants(Object.class, packageName(gluePath)));
+        }
+
+        return glueCodeClasses;
+    }
+
     /**
      * Registers step definitions and hooks.
      *
      * @param javaBackend the backend where stepdefs and hooks will be registered
-     * @param gluePaths   where to look
+     * @param glueCodeClasses classes to load
      */
-    public void scan(JavaBackend javaBackend, List<String> gluePaths) {
-        for (String gluePath : gluePaths) {
-            for (Class<?> glueCodeClass : classFinder.getDescendants(Object.class, packageName(gluePath))) {
-                while (glueCodeClass != null && glueCodeClass != Object.class && !Utils.isInstantiable(glueCodeClass)) {
-                    // those can't be instantiated without container class present.
-                    glueCodeClass = glueCodeClass.getSuperclass();
-                }
-                //prevent unnecessary checking of Object methods
-                if (glueCodeClass != null && glueCodeClass != Object.class) {
-                    for (Method method : glueCodeClass.getMethods()) {
-                        if (method.getDeclaringClass() != Object.class) {
-                            scan(javaBackend, method, glueCodeClass);
-                        }
+    public void scan(JavaBackend javaBackend, List<Class<?>> glueCodeClasses) {
+        for (Class<?> glueCodeClass : glueCodeClasses) {
+            while (glueCodeClass != null && glueCodeClass != Object.class && !Utils.isInstantiable(glueCodeClass)) {
+                // those can't be instantiated without container class present.
+                glueCodeClass = glueCodeClass.getSuperclass();
+            }
+            //prevent unnecessary checking of Object methods
+            if (glueCodeClass != null && glueCodeClass != Object.class) {
+                for (Method method : glueCodeClass.getMethods()) {
+                    if (method.getDeclaringClass() != Object.class) {
+                        scan(javaBackend, method, glueCodeClass);
                     }
                 }
             }
